@@ -19,7 +19,7 @@ type onSymlinkFunc func(string, string) error
 // symlink to the root directory.
 // This is github.com/cyphar/filepath-securejoin.SecureJoinVFS's implementation
 // with a callback on resolving the symlink.
-func rootPath(root, unsafePath string, cb onSymlinkFunc) (string, error) {
+func rootPath(root, unsafePath string, followTrailing bool, cb onSymlinkFunc) (string, error) {
 	if unsafePath == "" {
 		return root, nil
 	}
@@ -64,6 +64,10 @@ func rootPath(root, unsafePath string, cb onSymlinkFunc) (string, error) {
 		if errors.Is(err, os.ErrNotExist) || fi.Mode()&os.ModeSymlink == 0 {
 			path = nextPath
 			continue
+		}
+		if !followTrailing && unsafePath == "" {
+			path = nextPath
+			break
 		}
 
 		// It's a symlink, so get its contents and expand it by prepending it
