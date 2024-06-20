@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	iradix "github.com/hashicorp/go-immutable-radix"
 	"github.com/hashicorp/golang-lru/simplelru"
@@ -993,6 +994,13 @@ func (cc *cacheContext) needsScan(root *iradix.Node, path string, followTrailing
 	return cr == nil && !hasParentInTree, nil
 }
 
+// Only used by TestNeedScanChecksumRegression to make sure scanPath is not
+// called for paths we have already scanned.
+var (
+	scanCounterEnable bool
+	scanCounter       atomic.Uint64
+)
+
 func (cc *cacheContext) scanPath(ctx context.Context, m *mount, p string, followTrailing bool) (retErr error) {
 	p = path.Join("/", p)
 
@@ -1025,6 +1033,9 @@ func (cc *cacheContext) scanPath(ctx context.Context, m *mount, p string, follow
 	}
 
 	err = filepath.Walk(scanPath, func(itemPath string, fi os.FileInfo, err error) error {
+		if scanCounterEnable {
+			scanCounter.Add(1)
+		}
 		if err != nil {
 			// If the root doesn't exist, ignore the error.
 			if itemPath == scanPath && errors.Is(err, os.ErrNotExist) {
